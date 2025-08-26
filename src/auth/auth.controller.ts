@@ -1,4 +1,4 @@
-import { Controller, Post } from "@nestjs/common"
+import {Body, Controller, Post} from "@nestjs/common"
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger"
 import  { AuthService } from "./auth.service"
 import  { LoginDto } from "./dto/login.dto"
@@ -15,7 +15,7 @@ export class AuthController {
   @ApiOperation({ summary: "User login" })
   @ApiResponse({ status: 200, description: "Login successful" })
   @ApiResponse({ status: 401, description: "Invalid credentials" })
-  async login(loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto)
   }
 
@@ -24,7 +24,7 @@ export class AuthController {
   @ApiOperation({ summary: "User registration" })
   @ApiResponse({ status: 201, description: "Registration successful" })
   @ApiResponse({ status: 400, description: "Bad request" })
-  async register(registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto)
   }
 }
