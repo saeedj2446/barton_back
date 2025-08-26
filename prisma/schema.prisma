@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum FileType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profiles Profile[]
+  comments Comment[]
+  files    File[]
+
+  @@map("users")
+}
+
+model Profile {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  logoUrl     String?
+  phone       String?
+  address     String?
+  website     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ads   Ad[]
+  files File[]
+
+  @@map("profiles")
+}
+
+model Ad {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  price       Float?
+  category    String
+  location    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profileId String  @db.ObjectId
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  comments Comment[]
+  files    File[]
+
+  @@map("ads")
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  isAnswer  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  adId String @db.ObjectId
+  ad   Ad     @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  parentId String?   @db.ObjectId
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies  Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model File {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  originalName String
+  filename     String
+  path         String
+  mimetype     String
+  size         Int
+  type         FileType
+  createdAt    DateTime @default(now())
+
+  userId String? @db.ObjectId
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileId String?  @db.ObjectId
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  adId String? @db.ObjectId
+  ad   Ad?     @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@map("files")
+}
