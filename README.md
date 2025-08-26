@@ -1,4 +1,4 @@
-# Wholesale Marketplace Backenddd44
+# Wholesale Marketplace Backend
 
 A professional NestJS backend application for a wholesale marketplace with comprehensive user management, profile creation, ad posting, and commenting system.
 
