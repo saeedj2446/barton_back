@@ -1,0 +1,1284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+// در فایل prisma schema یا enums جداگانه
+enum SystemRole {
+  USER
+  ADMIN
+  MODERATOR
+  OPERATOR
+  CONTENT_APPROVER
+}
+
+enum AccountRole {
+  OWNER
+  MANAGER
+  FINANCE
+  VIEWER
+  SUPPORT
+  PRODUCT_MANAGER
+}
+
+enum FileUsage {
+  // عمومی
+  GENERAL
+  DOCUMENT
+
+  // حساب کاربری (کاربران)
+  PROFILE_PHOTO
+  ID_CARD_FRONT
+  ID_CARD_BACK
+  SELFIE_WITH_ID
+  SIGNATURE
+  BANK_CARD
+  ADDRESS_PROOF
+
+  // کسب‌وکار / سازمان
+  LOGO
+  BANNER
+  SHOP_FRONT
+  INTERIOR_PHOTO
+  SHOP_VIDEO
+  CERTIFICATE
+  LICENSE
+  TAX_DOCUMENT
+  REGISTRATION_DOC
+  TEAM_PHOTO
+
+  // محصول / خدمات
+  PRODUCT_IMAGE
+  PRODUCT_GALLERY
+  PRODUCT_VIDEO
+  PRODUCT_LABEL
+  PRODUCT_CERT
+  PRODUCT_MANUAL
+
+  // تبلیغات / محتوای بازاریابی
+  AD_BANNER
+  PROMO_VIDEO
+  SOCIAL_POST
+
+  // پشتیبانی و تاییدات
+  SUPPORT_ATTACHMENT
+  VERIFICATION_DOC
+}
+
+enum AccountActivityType {
+  PERSONAL // کاربر شخصی - فقط خرید برای مصرف
+  RETAIL_BUYER // خریدار خرده‌فروش - خرید عمده برای فروش خرده
+  WHOLESALER // عمده‌فروش - فروش عمده
+  MANUFACTURER // تولیدکننده - خرید مواد اولیه + فروش محصول
+  SUPPLIER // تأمین‌کننده مواد اولیه
+  DISTRIBUTOR // پخش‌کننده
+  SERVICE // ارائه‌دهنده خدمات
+  BROKER // کارگزار
+}
+
+enum ProductStatus {
+  PENDING // در انتظار بررسی
+  APPROVED // تایید شده و فعال
+  REJECTED // رد شده
+  EDIT_PENDING // در انتظار تایید پس از ویرایش
+  SUSPENDED // تعلیق شده (مثلاً به دلیل تخلف)
+  INACTIVE // غیرفعال توسط فروشنده یا سیستم
+  OUT_OF_STOCK // ناموجود (موجودی صفر)
+}
+
+enum InteractionType {
+  LIKE
+  SAVE
+  VIEW
+}
+
+enum OrderType {
+  PACKAGE_PURCHASE
+  PRODUCT_PURCHASE
+  PAYMENT_REQUEST
+  WITHDRAWAL_REQUEST
+  DEPOSIT_REQUEST
+  ESCROW_PAYMENT
+  ESCROW_RELEASE
+  ESCROW_REFUND
+  SERVICE_PURCHASE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  PROCESSING
+}
+
+enum TransactionType {
+  DEBIT
+  CREDIT
+  BONUS
+}
+
+enum PaymentMethod {
+  CREDIT_BALANCE
+  ONLINE_GATEWAY
+  BANK_TRANSFER
+  WALLET
+  CASH
+  CRYPTO
+}
+
+// فعالیتهای پولی
+enum CreditActivityType {
+  PRODUCT_BOOST
+  SEND_BROADCAST
+  FEATURED_BANNER
+  VIDEO_UPLOAD
+  INVITE_BONUS
+  PRODUCT_CREATE
+  PROFILE_COMPLETE
+  DAILY_LOGIN
+  REFERRAL_BONUS
+  WELCOME_BONUS
+  PACKAGE_PURCHASE
+}
+
+enum CreditActivityStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum UserActivityType {
+  SEARCH_QUERY
+  SEARCH_FILTER
+  PRODUCT_VIEW
+  ACCOUNT_VIEW
+  PRODUCT_SAVE
+  PRODUCT_LIKE
+  CATEGORY_VIEW
+  COMPARE_ACTION
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  COMING_SOON
+}
+
+// ==================== NEW ENUMS ====================
+
+enum CatalogStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  INACTIVE
+}
+
+enum SaleUnitType {
+  PIECE
+  WEIGHT
+  VOLUME
+  PACKAGE
+  CONTAINER
+}
+
+enum SettlementType {
+  CASH
+  CHECK_3DAY
+  CHECK_7DAY
+  CHECK_15DAY
+  CHECK_30DAY
+  CHECK_60DAY
+  BANK_TRANSFER
+  CREDIT_30D
+  CREDIT_60D
+  CREDIT_90D
+}
+
+// ضرایب افزایش پرداخت بصورت چک
+type SettlementMultipliers {
+  // فقط برای انواعی که ضریب دارند
+  CHECK_3DAY  Float? @default(1.0)
+  CHECK_7DAY  Float? @default(1.0)
+  CHECK_15DAY Float? @default(1.1)
+  CHECK_30DAY Float? @default(1.12)
+  CHECK_60DAY Float? @default(1.15)
+  CREDIT_30D  Float? @default(1.2)
+  CREDIT_60D  Float? @default(1.25)
+  CREDIT_90D  Float? @default(1.3)
+  // CASH و BANK_TRANSFER همیشه 1.0 هستند
+}
+
+enum DeliveryMethod {
+  SELLER_DELIVERY
+  BUYER_PICKUP
+  THIRD_PARTY
+  EXPRESS
+}
+
+// ==================== MODELS ====================
+
+model VerificationCode {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  code       String
+  mobile     String
+  expires_at DateTime
+  user_id    String?  @db.ObjectId
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+
+  @@map("verification_codes")
+}
+
+model User {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  created_at          DateTime  @default(now())
+  user_name           String?   @unique
+  first_name          String?
+  last_name           String?
+  sex                 String?
+  province            String?
+  city                String?
+  activity_type       String?   @default("0") // فعالیت شخصی یا شرکتی
+  is_verified         Boolean   @default(false)
+  is_buyer            Boolean   @default(false)
+  is_seller           Boolean   @default(false)
+  is_blocked          Boolean   @default(false)
+  wallet_balance      Int       @default(0)
+  category_id         Int?
+  active_package_type Int       @default(0)
+  package_end         DateTime?
+  customer_status     String    @default("00000000")
+  support_status      String    @default("00000000")
+  coming_from         String?
+  phone_allowed       Boolean   @default(true)
+  product_count       Int       @default(0)
+  response_rate       Float?
+  has_phone           Boolean   @default(false)
+
+  // سیستم اعتباری
+  credit_level   Int @default(0)
+  current_credit Int @default(0)
+  total_spent    Int @default(0)
+  bonus_credit   Int @default(0)
+
+  // فیلدهای احراز هویت
+  email       String?    @unique
+  mobile      String?    @unique
+  password    String
+  system_role SystemRole @default(USER)
+
+  // ارتباطات
+  account_users       AccountUser[]
+  reviews             Review[]
+  comments            Comment[]
+  buy_ads             BuyAd[]
+  products            Product[]
+  interactions        Interaction[]
+  credit_transactions CreditTransaction[]
+  sent_messages       Message[]           @relation("SentMessages")
+  conversations1      Conversation[]      @relation("ConversationUser1")
+  conversations2      Conversation[]      @relation("ConversationUser2")
+  verification_codes  VerificationCode[]
+  files               File[]
+  orders              Order[]
+  credit_activities   CreditActivity[]
+  seller_orders       Order[]             @relation("OrderSeller")
+  transactions        Transaction[]
+  user_activities     UserActivity[]
+  user_behavior       UserBehavior?
+  user_sessions       UserSession[]
+  user_plans          UserPlan[]
+
+  // ایندکس‌های حیاتی
+  @@index([is_verified, is_blocked])
+  @@index([created_at])
+  @@index([credit_level])
+  @@index([current_credit])
+  @@map("users")
+}
+
+model Account {
+  id                       String               @id @default(auto()) @map("_id") @db.ObjectId
+  created_at               DateTime             @default(now())
+  updated_at               DateTime             @updatedAt
+  name                     String?
+  activity_type            AccountActivityType? @default(PERSONAL)
+  primery_category_id      Int?
+  primery_category_name    String?
+  categories               Json[]
+  description              String?
+  profile_description      String?              @map("profile_description")
+  activity_domain          String?
+  related_activity_history String?
+  human_resource_count     String?
+  profile_photo            String?
+  public_phone             String?
+  address                  String?
+  postal_code              String?
+  shaba_code               String?
+  is_company               Boolean              @default(false)
+  company_name             String?
+  company_register_code    String?
+  confirmed                Boolean              @default(false)
+  is_active                Boolean              @default(true)
+  current_badge_type       String?
+  badge_expires_at         DateTime?
+  total_views              Int                  @default(0)
+  total_likes              Int                  @default(0)
+  total_saves              Int                  @default(0)
+
+  // فیلدهای جدید برای شرایط پیش‌فرض فروش
+  default_settlement_types SettlementType[]
+  default_delivery_methods DeliveryMethod[]
+  default_min_order_qty    Int              @default(1)
+  default_has_hamkar       Boolean          @default(false)
+  default_hamkar_discount  Int?
+
+  // ارتباطات موجود
+  settlement_multipliers SettlementMultipliers? // ضرایب افزایش قیمت برای چک یا روشهای غیر نقدی
+  account_users          AccountUser[]
+  products               Product[]
+  buy_ads                BuyAd[]
+  reviews                Review[]
+  comments               Comment[]
+  interactions           Interaction[]
+  files                  File[]
+  credit_transactions    CreditTransaction[]
+  credit_activities      CreditActivity[]
+  orders                 Order[]
+
+  // ایندکس‌های حیاتی
+  @@index([is_active, confirmed])
+  @@index([activity_type, is_active])
+  @@index([name])
+  @@index([public_phone])
+  @@index([created_at])
+  @@index([current_badge_type])
+  @@map("accounts")
+}
+
+model AccountUser {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  created_at   DateTime    @default(now())
+  account_role AccountRole @default(VIEWER)
+
+  user_id    String @db.ObjectId
+  account_id String @db.ObjectId
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, account_id])
+  @@index([user_id])
+  @@index([account_id])
+  @@map("account_users")
+}
+
+// ==================== NEW MODELS ====================
+model Category {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+  name        String
+  description String?
+  parent_id   String?    @db.ObjectId
+  parent      Category?  @relation("CategoryChildren", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Category[] @relation("CategoryChildren")
+  bId         Int        @unique
+  metadata    Json?
+
+  // ارتباطات
+  catalogs Catalog[]
+  specs    CategorySpec[] // ✅ رابطه با CategorySpec
+
+  @@index([parent_id])
+  @@map("categories")
+}
+
+model Spec {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+
+  // تعریف ویژگی پایه
+  name      String // "brand", "color", "size"
+  title     String // "برند", "رنگ", "سایز"
+  data_type String // "string", "number", "boolean", "options"
+  unit      String? // "گرم", "لیتر", "میلی‌متر"
+  options   String[] // ["قرمز", "آبی", "سبز"]
+
+  // رابطه دوطرفه
+  category_specs CategorySpec[] // ✅ رابطه با CategorySpec
+
+  @@unique([name])
+  @@map("specs")
+}
+
+model CategorySpec {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  category_id String @db.ObjectId
+  spec_id     String @db.ObjectId
+
+  category Category @relation(fields: [category_id], references: [id])
+  spec     Spec     @relation(fields: [spec_id], references: [id])
+
+  // تنظیمات مخصوص این دسته‌بندی
+  is_filterable  Boolean  @default(true)
+  is_required    Boolean  @default(false)
+  allowed_values String[] // مقادیر مجاز مخصوص این دسته‌بندی
+
+  @@unique([category_id, spec_id])
+  @@map("category_specs")
+}
+
+// این به صورت TypeScript type تعریف میشه، نه مدل Prisma!
+type SaleUnit {
+  unit_code         String
+  unit_name         String
+  unit_type         String // "WEIGHT", "VOLUME", "PIECE", "PACKAGE"
+  quantity          Float
+  unit_label        String
+  base_unit         String?
+  conversion_factor Float?
+  description       String?
+  is_available      Boolean?
+  min_quantity      Float?
+  max_quantity      Float?
+}
+
+model Catalog {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  name           String
+  description    String?
+  category_id    String        @db.ObjectId
+  category       Category      @relation(fields: [category_id], references: [id])
+  specifications Json? // برای داده‌های غیرقابل فیلتر
+  filter_tags    String[]
+  status         CatalogStatus @default(PENDING)
+  confirmed      Boolean       @default(false)
+
+  // ارتباطات
+  sale_units      SaleUnit[]
+  sale_conditions SaleCondition[]
+  products        Product[]
+  attributes      CatalogAttribute[] // ✅ جدید
+
+  @@index([category_id])
+  @@index([filter_tags])
+  @@index([status])
+  @@map("catalogs")
+}
+
+model CatalogAttribute {
+  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  catalog_id String  @db.ObjectId
+  catalog    Catalog @relation(fields: [catalog_id], references: [id])
+  name       String // "brand", "model", "diameter", "grain_size"
+  value      String // "سامسونگ", "S23", "50mm", "درشت"
+
+  @@unique([catalog_id, name])
+  @@index([name, value]) // برای فیلتر سریع
+  @@map("catalog_attributes")
+}
+
+model SaleCondition {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // ارتباطات
+  product_id String  @db.ObjectId
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  catalog_id String  @db.ObjectId
+  catalog    Catalog @relation(fields: [catalog_id], references: [id], onDelete: Cascade)
+
+  // ==================== قیمت‌گذاری پایه ====================
+  base_unit      String // واحد پایه قیمت‌گذاری (از sale_units کاتالوگ)
+  price_per_unit Int // قیمت برای هر واحد
+  min_order_qty  Int // حداقل تعداد/مقدار قابل سفارش
+  max_order_qty  Int? // حداکثر تعداد/مقدار قابل سفارش
+
+  // ==================== شرایط پرداخت و تحویل ====================
+  settlement_types SettlementType[] // روش‌های تسویه حساب
+  delivery_methods DeliveryMethod[] // روش‌های تحویل
+
+  // ==================== قیمت‌گذاری پیشرفته - برای فیلتر و جستجو ====================
+
+  // 🆕 استراتژی قیمت‌گذاری
+  pricing_strategy String @default("SIMPLE") // "SIMPLE", "TIERED", "GROUP_BASED", "SEASONAL"
+
+  // 🆕 قیمت‌گذاری پلکانی (برای فیلتر بر اساس سطوح تخفیف)
+  tiered_pricing Json? // [
+  //   { min_qty: 100, price: 95000, discount_percent: 5 },
+  //   { min_qty: 500, price: 90000, discount_percent: 10 },
+  //   { min_qty: 1000, price: 85000, discount_percent: 15 }
+  // ]
+
+  // 🆕 تخفیف‌های گروهی (برای فیلتر بر اساس نوع مشتری)
+  group_discounts Json? // [
+  //   { group_type: "WHOLESALER", discount_percent: 20, min_orders: 5 },
+  //   { group_type: "RETAILER", discount_percent: 15, min_orders: 10 },
+  //   { group_type: "VIP_CUSTOMER", discount_percent: 25 }
+  // ]
+
+  // 🆕 تخفیف‌های زمانی (برای فیلتر بر اساس زمان)
+  seasonal_discounts Json? // [
+  //   {
+  //     name: "تخفیف زمستانه",
+  //     discount_percent: 10,
+  //     start_date: "2024-12-01",
+  //     end_date: "2024-02-28",
+  //     is_active: true
+  //   }
+  // ]
+
+  // 🆕 قیمت‌گذاری منطقه‌ای (برای فیلتر بر اساس منطقه)
+  regional_pricing Json? // [
+  //   { province: "تهران", price: 105000, extra_charge: 5000 },
+  //   { province: "مشهد", price: 100000, extra_charge: 0 },
+  //   { province: "شهرستان‌ها", price: 110000, extra_charge: 10000 }
+  // ]
+
+  // 🆕 شرایط خاص (برای فیلترهای ترکیبی)
+  special_conditions Json? // {
+  //   min_cart_value: 1000000,        // حداقل ارزش سبد خرید
+  //   combo_products: ["prod1", "prod2"], // محصولات ترکیبی
+  //   loyalty_tier: "GOLD",           // سطح وفاداری
+  //   business_size: "LARGE"          // اندازه کسب‌وکار
+  // }
+
+  // ==================== فیلدهای محاسبه شده برای جستجوی سریع ====================
+
+  // 🆕 محاسبات برای فیلتر سریع - این فیلدها هنگام ذخیره محاسبه می‌شوند
+  max_discount_percent Int? // بیشترین درصد تخفیف در بین تمام سطوح
+  min_effective_price  Int? // کمترین قیمت موثر (با احتساب همه تخفیف‌ها)
+  has_any_discount     Boolean  @default(false) // آیا هرگونه تخفیف دارد؟
+  discount_types       String[] // انواع تخفیف‌های موجود: ["BULK", "HAMKAR", "SEASONAL", "GROUP"]
+
+  // 🆕 برای فیلتر بر اساس سرعت تحویل
+  estimated_delivery_days Int? // میانگین روزهای تحویل
+  has_express_delivery    Boolean @default(false) // آیا تحویل سریع دارد؟
+
+  // 🆕 برای فیلتر بر اساس شرایط پرداخت
+  has_credit_payment Boolean @default(false) // آیا پرداخت اعتباری دارد؟
+  max_credit_days    Int? // حداکثر روزهای اعتبار
+
+  // ==================== شرایط ویژه موجود ====================
+  has_hamkar_discount     Boolean @default(false)
+  hamkar_discount_percent Int?
+  has_bulk_pricing        Boolean @default(false)
+  bulk_min_qty            Int?
+  bulk_price              Int?
+
+  // ==================== وضعیت ====================
+  is_active  Boolean @default(true)
+  is_default Boolean @default(false)
+
+  // ==================== ایندکس‌های حیاتی برای جستجوی سریع ====================
+  @@index([product_id, price_per_unit])
+  @@index([catalog_id, settlement_types])
+  @@index([base_unit, min_order_qty])
+  @@index([pricing_strategy]) // 🆕 برای فیلتر بر اساس استراتژی قیمت‌گذاری
+  @@index([has_any_discount]) // 🆕 برای فیلتر محصولات دارای تخفیف
+  @@index([max_discount_percent]) // 🆕 برای فیلتر بر اساس میزان تخفیف
+  @@index([min_effective_price]) // 🆕 برای فیلتر بر اساس قیمت نهایی
+  @@index([has_express_delivery]) // 🆕 برای فیلتر تحویل سریع
+  @@index([has_credit_payment]) // 🆕 برای فیلتر پرداخت اعتباری
+  @@index([is_active, has_any_discount]) // 🆕 ترکیبی برای عملکرد بهتر
+  @@map("sale_conditions")
+}
+
+model Product {
+  id                       String        @id @default(auto()) @map("_id") @db.ObjectId
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+  p_created_at             DateTime?     @map("p_created_at")
+  name             String
+  stock                    Int           @default(0)
+  description              String?
+  address                  String?
+  unit                     String
+  is_rejected              Boolean       @default(false)
+  has_video                Boolean       @default(false)
+  is_old                   Boolean       @default(false)
+  confirmed                Boolean       @default(false)
+  status                   ProductStatus @default(APPROVED)
+  last_price_update        DateTime?     @map("last_price_update")
+  total_views              Int           @default(0)
+  total_likes              Int           @default(0)
+  total_saves              Int           @default(0)
+  province_name            String?
+  province_id              Int?
+  city_name                String?
+  city_id                  Int?
+  boost_power              Int           @default(0)
+  boost_expires_at         DateTime?
+  boost_purchased          Boolean       @default(false)
+  boost_is_elevated        Boolean       @default(false)
+  category_id              Int?
+  category_name            String?
+  sub_category_id          Int?
+  sub_category_name        String?
+  super_category_name      String?
+  is_brands_representative Boolean       @default(false)
+
+  // فیلدهای جدید برای سیستم کاتالوگ
+  catalog_id String?  @db.ObjectId
+  catalog    Catalog? @relation(fields: [catalog_id], references: [id], onDelete: Cascade)
+
+  // حذف فیلدهای تکراری قیمت
+  // ❌ min_sale_price Int
+  // ❌ max_sale_price Int?
+  // ❌ min_sale_amount Int
+  // ❌ brand_name String
+
+  account_id          String              @db.ObjectId
+  account             Account             @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  user_id             String              @db.ObjectId
+  user                User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  files               File[]
+  reviews             Review[]
+  comments            Comment[]
+  interactions        Interaction[]
+  credit_transactions CreditTransaction[]
+  credit_activities   CreditActivity[]
+  order_items         OrderItem[]
+  user_activities     UserActivity[]
+
+  // ارتباط جدید با شرایط فروش
+  sale_conditions SaleCondition[]
+
+  @@index([account_id])
+  @@index([user_id])
+  @@index([category_id, sub_category_id])
+  @@index([boost_is_elevated, confirmed])
+  @@index([created_at])
+  @@index([province_id, city_id])
+  @@index([total_views])
+  @@index([total_likes])
+  @@index([catalog_id]) // ایندکس جدید
+  @@map("products")
+}
+
+model BuyAd {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at         DateTime @default(now())
+  name               String?
+  requirement_amount Int
+  register_date      DateTime @map("register_date")
+
+  // دسته‌بندی
+  category_id      Int?
+  category_name    String?
+  subcategory_name String?
+  unit             String
+
+  // اطلاعات کاربر
+  first_name        String?
+  last_name         String?
+  is_verified       Boolean          @default(false)
+  status            ProductStatus    @default(APPROVED)
+  // ارتباطات
+  account_id        String           @db.ObjectId
+  account           Account          @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  user_id           String           @db.ObjectId
+  user              User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  credit_activities CreditActivity[]
+
+  // ایندکس‌های حیاتی
+  @@index([account_id])
+  @@index([user_id])
+  @@index([category_id])
+  @@index([created_at])
+  @@map("buy_ads")
+}
+
+model Review {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at    DateTime @default(now())
+  rating_score  Int      @default(5)
+  comment       String?
+  confirmed     Boolean  @default(false)
+  likes         Int      @default(0)
+  already_liked Boolean  @default(false)
+
+  // کاربر نظر دهنده
+  user_id    String  @db.ObjectId
+  first_name String?
+  last_name  String?
+  city       String?
+  province   String?
+
+  // ارتباط با محصول یا اکانت
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // هر کاربر فقط یک نظر برای هر محصول/اکانت
+  @@unique([user_id, product_id])
+  @@unique([user_id, account_id])
+  // ایندکس‌های حیاتی
+  @@index([product_id, created_at])
+  @@index([account_id, created_at])
+  @@index([user_id, created_at])
+  @@index([rating_score])
+  @@index([confirmed])
+  @@map("reviews")
+}
+
+model Comment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at    DateTime @default(now())
+  content       String
+  confirmed     Boolean  @default(false)
+  likes         Int      @default(0)
+  already_liked Boolean  @default(false)
+
+  // کاربر کامنت دهنده
+  user_id    String  @db.ObjectId
+  first_name String?
+  last_name  String?
+  city       String?
+  province   String?
+
+  // سیستم پاسخگویی
+  parent_id String?   @db.ObjectId
+  parent    Comment?  @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Comment[] @relation("CommentReplies")
+
+  // ارتباط با محصول یا اکانت
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ایندکس‌های حیاتی
+  @@index([product_id, created_at])
+  @@index([account_id, created_at])
+  @@index([user_id, created_at])
+  @@index([parent_id])
+  @@index([confirmed])
+  @@map("comments")
+}
+
+model Interaction {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime        @default(now())
+  type       InteractionType
+
+  // کاربر انجام دهنده
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ارتباط با محصول یا اکانت
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  // هر کاربر فقط یک بار می‌تواند لایک/ذخیره کند (ویو محدودیت ندارد)
+  @@unique([user_id, product_id, type])
+  @@unique([user_id, account_id, type])
+  // ایندکس‌های حیاتی
+  @@index([product_id, type, created_at])
+  @@index([account_id, type, created_at])
+  @@index([user_id, type])
+  @@index([type, created_at])
+  @@map("interactions")
+}
+
+model File {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  created_at     DateTime  @default(now())
+  file_path      String
+  thumbnail_path String?   @map("thumbnail_path")
+  status         String?   @default("2")
+  mime           Int?
+  upload_date    DateTime? @map("upload_date")
+  file_usage     FileUsage
+  description    String?
+
+  // ارتباطات
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+  user_id    String?  @db.ObjectId
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // ایندکس‌های حیاتی
+  @@index([product_id])
+  @@index([account_id])
+  @@index([user_id])
+  @@index([file_usage])
+  @@index([created_at])
+  @@map("files")
+}
+
+model Conversation {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // دو طرف گفتگو
+  user1_id String @db.ObjectId
+  user2_id String @db.ObjectId
+  user1    User   @relation("ConversationUser1", fields: [user1_id], references: [id])
+  user2    User   @relation("ConversationUser2", fields: [user2_id], references: [id])
+
+  // پیام‌ها
+  messages Message[]
+
+  // آخرین پیام برای performance
+  last_message_text String?
+  last_message_time DateTime?
+
+  // وضعیت خواندن
+  user1_last_read_at DateTime?
+  user2_last_read_at DateTime?
+
+  @@unique([user1_id, user2_id])
+  @@index([user1_id, updated_at])
+  @@index([user2_id, updated_at])
+  @@index([updated_at])
+  @@map("conversations")
+}
+
+model Message {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  content    String
+  is_read    Boolean  @default(false)
+
+  // فرستنده
+  sender_id String @db.ObjectId
+  sender    User   @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+
+  // گفتگوی مرتبط
+  conversation_id String       @db.ObjectId
+  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id, created_at])
+  @@index([sender_id, created_at])
+  @@index([is_read])
+  @@map("messages")
+}
+
+model Order {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  order_number String   @unique
+
+  // نوع سفارش
+  order_type OrderType
+  status     OrderStatus @default(PENDING)
+
+  // کاربر مرتبط
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // فروشنده (برای سفارشات خرید از دیگران)
+  seller_id String? @db.ObjectId
+  seller    User?   @relation("OrderSeller", fields: [seller_id], references: [id])
+
+  // اکانت مرتبط
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  // اطلاعات مالی
+  total_amount    Int
+  tax_amount      Int @default(0)
+  discount_amount Int @default(0)
+  net_amount      Int
+
+  // اطلاعات پرداخت
+  payment_method PaymentMethod?
+  paid_at        DateTime?
+
+  // مهلت پرداخت
+  expires_at DateTime?
+
+  // آیتم‌های سفارش
+  items OrderItem[]
+
+  // تراکنش‌های پرداخت
+  transactions Transaction[]
+
+  // اطلاعات اضافی بر اساس نوع سفارش
+  metadata Json?
+
+  // فیلدهای تسویه
+  settled_at           DateTime?
+  settlement_reference String?
+
+  // ارتباط با فعالیت‌های اعتباری
+  credit_activities CreditActivity[]
+
+  @@index([user_id, created_at])
+  @@index([seller_id, created_at])
+  @@index([order_type, status])
+  @@index([status, created_at])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  order_id   String   @db.ObjectId
+  order      Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  // نوع آیتم
+  item_type  String
+  item_id    String? @db.ObjectId
+  item_title String
+
+  // اطلاعات قیمت و مقدار
+  quantity    Int @default(1)
+  unit_price  Int
+  total_price Int
+
+  // اطلاعات اضافی
+  description String?
+
+  // برای محصولات فیزیکی
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id])
+
+  @@index([order_id])
+  @@index([item_type, item_id])
+  @@map("order_items")
+}
+
+model Transaction {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  transaction_number String   @unique
+
+  // وضعیت تراکنش
+  status TransactionStatus @default(PENDING)
+
+  // سفارش مرتبط
+  order_id String @db.ObjectId
+  order    Order  @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  // کاربر مرتبط
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // اطلاعات مالی
+  amount     Int
+  fee        Int    @default(0)
+  net_amount Int
+  currency   String @default("IRR")
+
+  // نوع تراکنش
+  transaction_type TransactionType
+
+  // روش پرداخت
+  payment_method PaymentMethod?
+
+  // اطلاعات پرداخت
+  gateway_reference String?
+  gateway_response  Json?
+
+  // زمان‌های مهم
+  processed_at DateTime?
+  completed_at DateTime?
+
+  // اطلاعات خطا و بازپرداخت
+  error_code    String?
+  error_message String?
+  refund_amount Int?
+  refund_reason String?
+  refunded_at   DateTime?
+
+  // تأیید مدیریتی
+  verified_by String?
+  verified_at DateTime?
+  notes       String?
+
+  // ارتباط با تراکنش اعتباری
+  credit_transaction CreditTransaction?
+  UserPlan           UserPlan[]
+
+  @@index([order_id])
+  @@index([user_id, created_at])
+  @@index([created_at])
+  @@map("transactions")
+}
+
+model CreditTransaction {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+
+  // کاربر مرتبط
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // اکانت مرتبط
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  // محصول مرتبط
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  // تراکنش اصلی مرتبط
+  transaction_id String?      @unique @db.ObjectId
+  transaction    Transaction? @relation(fields: [transaction_id], references: [id])
+
+  // اطلاعات تراکنش اعتباری
+  amount        Int
+  balance_after Int
+  activity_type String
+  quantity      Int?
+  description   String?
+
+  // نوع تراکنش اعتباری
+  credit_transaction_type TransactionType  @default(DEBIT)
+  credit_activities       CreditActivity[]
+
+  @@index([user_id, created_at])
+  @@index([account_id, created_at])
+  @@index([activity_type])
+  @@map("credit_transactions")
+}
+
+model CreditActivity {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+
+  // کاربر انجام دهنده
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // اکانت مرتبط
+  account_id String?  @db.ObjectId
+  account    Account? @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  // محصول مرتبط
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  // سفارش مرتبط
+  order_id String? @db.ObjectId
+  order    Order?  @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  // آگهی خرید مرتبط
+  buy_ad_id String? @db.ObjectId
+  buy_ad    BuyAd?  @relation(fields: [buy_ad_id], references: [id], onDelete: Cascade)
+
+  // تراکنش اعتباری مرتبط
+  credit_transaction_id String?            @db.ObjectId
+  credit_transaction    CreditTransaction? @relation(fields: [credit_transaction_id], references: [id], onDelete: Cascade)
+
+  // نوع فعالیت
+  activity_type CreditActivityType
+
+  // اطلاعات فعالیت
+  quantity     Int                  @default(1)
+  unit_price   Int
+  total_cost   Int
+  user_plan_id String?              @db.ObjectId
+  user_plan    UserPlan?            @relation(fields: [user_plan_id], references: [id], onDelete: Cascade)
+  // وضعیت
+  status       CreditActivityStatus @default(PENDING)
+
+  @@index([user_id, created_at])
+  @@index([account_id, created_at])
+  @@index([order_id])
+  @@index([activity_type])
+  @@index([status])
+  @@map("credit_activities")
+}
+
+model UserActivity {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+
+  // کاربر
+  user_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // نوع فعالیت
+  activity_type UserActivityType
+
+  // هدف فعالیت
+  target_type String?
+  target_id   String? @db.ObjectId
+
+  // اطلاعات مختصر و مفید برای شخصی‌سازی
+  metadata Json?
+
+  // وزن فعالیت (برای الگوریتم پیشنهاد)
+  weight Int @default(1)
+
+  // ارتباط با محصول (اگر مربوط به محصول باشد)
+  product_id String?  @db.ObjectId
+  product    Product? @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  // ارتباط با جلسه
+  session_id String?      @db.ObjectId
+  session    UserSession? @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([activity_type, created_at])
+  @@index([target_type, target_id])
+  @@index([user_id, activity_type])
+  @@map("user_activities")
+}
+
+model UserBehavior {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  user_id    String   @unique @db.ObjectId
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  updated_at DateTime @updatedAt
+
+  // علاقه‌مندی‌های کاربر
+  interests Json?
+
+  // الگوهای جستجو
+  search_patterns Json?
+
+  // تاریخچه مختصر
+  recent_searches String[]
+  recent_views    String[]
+  recent_saves    String[]
+
+  // آمار سریع برای بهینه‌سازی
+  total_searches Int       @default(0)
+  total_views    Int       @default(0)
+  total_saves    Int       @default(0)
+  last_active    DateTime?
+
+  @@index([updated_at])
+  @@map("user_behaviors")
+}
+
+model UserSession {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  user_id    String    @db.ObjectId
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  started_at DateTime  @default(now())
+  ended_at   DateTime?
+
+  // فعالیت‌های این جلسه
+  activities UserActivity[]
+
+  // خلاصه جلسه برای آنالیز
+  session_type              String?
+  number_of_pages_visited   Int     @default(0) // تعداد صفحات بازدید شده
+  number_of_products_viewed Int     @default(0)
+  number_of_searches_made   Int     @default(0)
+
+  @@index([user_id, started_at])
+  @@index([started_at])
+  @@map("user_sessions")
+}
+
+model Plan {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // اطلاعات پایه
+  name        String
+  level       Int     @unique // سطح پلن (1, 2, 3, ...)
+  description String?
+
+  // اطلاعات قیمت و اعتبار
+  price         Int // قیمت به ریال
+  credit_amount Int // میزان اعتبار اصلی
+  bonus_credit  Int @default(0) // اعتبار هدیه
+  total_credit  Int // اعتبار کل (credit_amount + bonus_credit)
+
+  // مدت زمان
+  expiry_days Int // مدت اعتبار به روز
+
+  // وضعیت
+  status     PlanStatus @default(ACTIVE)
+  is_popular Boolean    @default(false)
+
+  // مزایا
+  benefits String[] // لیست مزایا
+
+  // ارتباطات
+  user_plans UserPlan[]
+
+  // ایندکس‌های حیاتی
+  @@index([status])
+  @@index([price])
+  @@index([is_popular])
+  @@map("plans")
+}
+
+model UserPlan {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // کاربر و پلن
+  user_id String @db.ObjectId
+  plan_id String @db.ObjectId
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan    Plan   @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  // اطلاعات فعال‌سازی
+  start_date DateTime @default(now())
+  end_date   DateTime // تاریخ انقضا
+  is_active  Boolean  @default(true)
+
+  // اطلاعات استفاده
+  initial_credit   Int // اعتبار اولیه
+  remaining_credit Int // اعتبار باقیمانده
+  used_credit      Int @default(0) // اعتبار مصرف شده
+
+  // تراکنش مرتبط
+  transaction_id String?      @db.ObjectId
+  transaction    Transaction? @relation(fields: [transaction_id], references: [id])
+
+  // ارتباط با فعالیت‌های اعتباری
+  credit_activities CreditActivity[]
+
+  // هر کاربر فقط یک پلن فعال می‌تواند داشته باشد
+  @@unique([user_id, plan_id, is_active])
+  // ایندکس‌های حیاتی
+  @@index([user_id, is_active])
+  @@index([plan_id])
+  @@index([end_date])
+  @@index([is_active, end_date])
+  @@map("user_plans")
+}

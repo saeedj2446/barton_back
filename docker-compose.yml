@@ -4,7 +4,7 @@ services:
   app:
     build: .
     ports:
-      - "3010:3010"
+      - "3011:3011"
     environment:
       - DATABASE_URL=mongodb://mongo:27017/barton_db
       - JWT_SECRET=e2f7b8c4c8c5f3a7f9b1e0d4c6f2a1b0e3b7c8d9e6f4a5e2d3c8b7f0a1e2d3c4

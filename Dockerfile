@@ -1,20 +1,27 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
-# پوشه کاری
 WORKDIR /app
 
-# فقط package.json و lockfile رو کپی کن
-COPY package*.json ./
-
-# نصب پکیج‌ها
-RUN npm install --legacy-peer-deps
-
-# حالا کل سورس‌کد رو کپی کن
 COPY . .
 
-# نصب nestjs/cli به‌صورت local بهتره (نه global)
-# ولی اگه اصرار داری global باشه، بمونه
-RUN npm install -g @nestjs/cli
+RUN npm ci
 
-# اجرای پروژه در حالت dev
-CMD ["npm", "run", "start:dev"]
+# build
+RUN npx nest build
+
+
+RUN echo "=== MOVING MAIN.JS ==="
+RUN test -f dist/src/main.js && mv dist/src/main.js dist/ && echo "✅ main.js moved to dist/" || echo "❌ main.js not found in dist/src/"
+
+
+RUN test -d dist/src && (mv dist/src/* dist/ 2>/dev/null || true) && rmdir dist/src 2>/dev/null || true
+
+RUN echo "=== FINAL CHECK ==="
+RUN ls -la dist/ && test -f dist/main.js && echo "🎉 READY! dist/main.js exists" || echo "💥 STILL MISSING dist/main.js"
+
+RUN npx prisma generate
+
+EXPOSE 10000
+ENV NODE_ENV=production
+
+CMD ["node", "dist/main"]

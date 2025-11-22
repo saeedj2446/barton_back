@@ -1,35 +1,58 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsEnum } from "class-validator"
-import { ApiProperty } from "@nestjs/swagger"
-import { Role } from "@prisma/client"
+import { IsEmail, IsNotEmpty, IsString, IsOptional, MinLength } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
-export class CreateUserDto {
-  @ApiProperty({ example: "user@example.com" })
+export class RegistrationDto {
+  @ApiProperty({ example: "989196421264", required: false })
+  @IsString()
+  @IsOptional()
+  @IsNotEmpty({ message: 'موبایل اجباری است' })
+  mobile?: string;
+
+  @ApiProperty({ example: "ora@gmail.com", required: false })
+  @IsString()
+  @IsOptional()
   @IsEmail()
-  @IsNotEmpty()
-  email: string
+  email?: string;
 
-  @ApiProperty({ example: "password123" })
+  @ApiProperty({ example: "123456", minLength: 6 })
   @IsString()
-  @IsNotEmpty()
-  password: string
+  @IsNotEmpty({ message: 'پسورد اجباری است' })
+  @MinLength(6)
+  password: string;
 
-  @ApiProperty({ example: "John" })
-  @IsString()
-  @IsNotEmpty()
-  firstName: string
-
-  @ApiProperty({ example: "Doe" })
-  @IsString()
-  @IsNotEmpty()
-  lastName: string
-
-  @ApiProperty({ example: "+1234567890", required: false })
+  @ApiProperty({ example: "John", required: false })
   @IsString()
   @IsOptional()
-  phone?: string
+  first_name?: string;
 
-  @ApiProperty({ enum: Role, default: Role.USER, required: false })
-  @IsEnum(Role)
+  @ApiProperty({ example: "Doe", required: false })
+  @IsString()
   @IsOptional()
-  role?: Role
+  last_name?: string;
+
+  @ApiProperty({ example: "MAN", required: false })
+  @IsString()
+  @IsOptional()
+  sex?: string;
+
+  // 🔥 اضافه کردن فیلدهای موقعیت جدید
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  location_level_1_id?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  location_level_2_id?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  location_level_3_id?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  location_level_4_id?: string;
 }
